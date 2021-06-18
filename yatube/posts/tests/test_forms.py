@@ -1,14 +1,14 @@
 import shutil
 import tempfile
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ..forms import PostForm
-from ..models import Group, Post
+from ..models import Comment, Group, Post
 
 User = get_user_model()
 
@@ -123,3 +123,23 @@ class PostCreateFormTests(TestCase):
                 author=PostCreateFormTests.post.author,
                 group=PostCreateFormTests.group
             ).exists())
+
+    def test_comment_post(self):
+        comments_count = Comment.objects.count()
+        form_data = {
+            'post': self.post,
+            'text': 'Комментарий',
+        }
+        response = self.authorized_client.post(
+            reverse('add_comment', kwargs={
+                'username': 'AndreyG',
+                'post_id': 1
+            }),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response, reverse('post', kwargs={
+            'username': 'AndreyG',
+            'post_id': 1
+        }))
+        self.assertEqual(Comment.objects.count(), comments_count + 1)

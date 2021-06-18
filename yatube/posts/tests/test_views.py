@@ -1,18 +1,15 @@
 import shutil
 import tempfile
 
-from http import HTTPStatus
-
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.cache import cache
 
-
-from ..models import Group, Post, Follow
+from ..models import Follow, Group, Post
 
 User = get_user_model()
 
@@ -199,20 +196,13 @@ class PostGroupPagesTests(TestCase):
         response = self.authorized_client.get(reverse("follow_index"))
         test_user_context = response.context['page'][0]
         self.assertEqual(test_user_context.author, post.author)
-
-    def test_authprized_only_comments(self):
-        """Только авторизированный пользователь может
-        комментировать посты."""
-        auth_response = self.guest_client.get(reverse('add_comment', kwargs={
-            'username': 'AndreyG',
-            'post_id': self.post.id
-        }))
-        guest_response = self.guest_client.get(reverse('add_comment', kwargs={
-            'username': 'AndreyG',
-            'post_id': self.post.id
-        }))
-        self.assertEqual(auth_response.status_code, 302)
-        self.assertNotEqual(guest_response.status_code, HTTPStatus.OK)
+        another_post = Post.objects.create(
+            text='Особый текст',
+            author=self.additional_user,
+        )
+        response = self.authorized_client.get(reverse("follow_index"))
+        test_user_context = response.context['page'][0]
+        self.assertNotEqual(test_user_context.author, another_post.author)
 
 
 class PaginatorViewsTest(TestCase):
