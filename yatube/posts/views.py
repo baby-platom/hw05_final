@@ -108,7 +108,8 @@ def post_edit(request, username, post_id):
     if form.is_valid():
         form.save()
         return redirect('post', username=username, post_id=post_id)
-    return render(request, 'posts/post_new_or_edit.html', {'form': form})
+    return render(request, 'posts/post_new_or_edit.html', {'form': form,
+                                                           'post': post})
 
 
 @login_required
@@ -161,7 +162,7 @@ def profile_follow(request, username):
             user=user,
             author=author
         )
-        return redirect('profile', username)
+    return redirect('profile', username)
 
 
 @login_required

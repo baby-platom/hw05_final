@@ -21,7 +21,7 @@ class Post(models.Model):
                                related_name='posts')
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, blank=True,
                               null=True, related_name='posts')
-    image = models.ImageField(upload_to='media/', blank=True, null=True)
+    image = models.ImageField(upload_to='posts/', blank=True, null=True)
 
     class Meta:
         ordering = ['-pub_date']
