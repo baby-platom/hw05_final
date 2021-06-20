@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.db.utils import IntegrityError
 
 from ..models import Group, Post, Comment, Follow
 
@@ -56,3 +57,17 @@ class CommentModelTest(TestCase):
         comment = CommentModelTest.comment
         expected_object_name = comment.text
         self.assertEqual(expected_object_name, str(comment))
+
+
+class FollowModelTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='AndreyG')
+
+    def test_constraints_of_follow(self):
+        with self.assertRaises(IntegrityError):
+            Follow.objects.create(
+                user=self.user,
+                author=self.user,
+            )
