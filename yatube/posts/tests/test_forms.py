@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from ..forms import PostForm
+from ..forms import PostForm, CommentForm
 from ..models import Comment, Group, Post
 
 User = get_user_model()
@@ -84,7 +84,7 @@ class PostCreateFormTests(TestCase):
             'Типичный текст': post_obj.text,
             self.group.id: post_obj.group.id,
             self.test_user: post_obj.author,
-            'media/small.gif': post_obj.image.name
+            'posts/small.gif': post_obj.image.name
         }
         for value, expected in fields.items():
             with self.subTest(value=value):
@@ -108,21 +108,32 @@ class PostCreateFormTests(TestCase):
             follow=True)
         self.assertRedirects(
             response,
-            '/AndreyG/'
-            f'{PostCreateFormTests.post.id}/')
+            f'/AndreyG/{PostCreateFormTests.post.id}/')
         self.assertEqual(Post.objects.count(), posts_count)
-        self.assertTrue(
-            Post.objects.filter(
-                text='Новый текст',
-                author=PostCreateFormTests.post.author,
-                group=PostCreateFormTests.another_group
-            ).exists())
-        self.assertFalse(
-            Post.objects.filter(
-                text='Тестовый текст',
-                author=PostCreateFormTests.post.author,
-                group=PostCreateFormTests.group
-            ).exists())
+        PostCreateFormTests.post.refresh_from_db()
+        self.assertTrue(PostCreateFormTests.post.text, 'Новый текст')
+        self.assertTrue(PostCreateFormTests.post.group,
+                        PostCreateFormTests.another_group)
+
+
+class CommentCreateFormTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.test_user = User.objects.create_user(username='AndreyG')
+
+        cls.post = Post.objects.create(
+            text='Тестовый текст',
+            author=cls.test_user,
+        )
+
+        cls.form = CommentForm()
+
+    def setUp(self):
+        self.user = CommentCreateFormTests.test_user
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
 
     def test_comment_post(self):
         comments_count = Comment.objects.count()

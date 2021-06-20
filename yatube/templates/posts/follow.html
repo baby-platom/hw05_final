@@ -10,7 +10,7 @@
 
         {% cache 20 follow_index_page page %}
             {% for post in page %}
-                {% include "post_item.html" with post=post %}
+                {% include "posts/post_item.html" with post=post %}
             {% endfor %}
         {% endcache %}
 

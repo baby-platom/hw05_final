@@ -52,6 +52,7 @@ class Follow(models.Model):
                                related_name='following')
 
     class Meta:
+        unique_together = ['user', 'author']
         constraints = [
             models.CheckConstraint(
                 name="prevent_self_follow",

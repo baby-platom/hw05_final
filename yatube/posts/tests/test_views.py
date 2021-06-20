@@ -67,6 +67,8 @@ class PostGroupPagesTests(TestCase):
         self.additional_client = Client()
         self.additional_client.force_login(self.additional_user)
 
+        cache.clear()
+
     def _assert_post_fields(self, first_object):
         author = self.test_user
         text = self.post.text
@@ -156,12 +158,17 @@ class PostGroupPagesTests(TestCase):
 
     def test_index_use_cache_appropriately(self):
         """Страница index использует кэш правильно."""
-        response_1 = self.guest_client.get(reverse('index'))
-        response_2 = self.guest_client.get(reverse('index'))
+        initial_response = self.guest_client.get(reverse('index'))
+        Post.objects.create(
+            text='Условный текст',
+            author=self.another_user
+        )
+        cached_response = self.guest_client.get(reverse('index'))
         cache.clear()
-        response_3 = self.guest_client.get(reverse('index'))
-        self.assertEqual(response_1.content, response_2.content)
-        self.assertNotEqual(response_1.content, response_3.content)
+        non_cached_response = self.guest_client.get(reverse('index'))
+        self.assertEqual(initial_response.content, cached_response.content)
+        self.assertNotEqual(initial_response.content,
+                            non_cached_response.content)
 
     def test_authorized_can_subscribe(self):
         """Авторизированный пользователь может подписываться и отписываться."""
@@ -169,22 +176,24 @@ class PostGroupPagesTests(TestCase):
             user=self.test_user,
             author=self.another_user
         )
-        subscribe_exist = Follow.objects.filter(
-            user=self.test_user,
-            author=self.another_user).exists()
+        Post.objects.create(
+            text='Условный текст',
+            author=self.another_user
+        )
+        response = self.authorized_client.get(reverse('follow_index'))
+        subscribe_exist = len(response.context['page'])
+        self.assertEqual(subscribe_exist, 1)
         Follow.objects.filter(
             user=self.test_user,
-            author=self.another_user).delete()
-        subscribe_not_exist = Follow.objects.filter(
-            user=self.test_user,
-            author=self.another_user).exists()
-        self.assertTrue(subscribe_exist)
-        self.assertFalse(subscribe_not_exist)
+            author=self.another_user
+        ).delete()
+        response = self.authorized_client.get(reverse('follow_index'))
+        subscribe_not_exist = len(response.context['page'])
+        self.assertEqual(subscribe_not_exist, 0)
 
-    def test_follow_page_work_properly(self):
+    def test_follow_page_work_properly_for_subscribers(self):
         """Новая запись пользователя появляется в ленте тех,
-        кто на него подписан и не появляется в ленте тех,
-        кто не подписан на него."""
+        кто на него подписан."""
         Follow.objects.create(
             user=self.test_user,
             author=self.another_user
@@ -196,13 +205,17 @@ class PostGroupPagesTests(TestCase):
         response = self.authorized_client.get(reverse("follow_index"))
         test_user_context = response.context['page'][0]
         self.assertEqual(test_user_context.author, post.author)
-        another_post = Post.objects.create(
+
+    def test_follow_page_work_properly_for_not_subscribers(self):
+        """Новая запись пользователя не появляется в ленте тех,
+        кто не подписан на него."""
+        Post.objects.create(
             text='Особый текст',
             author=self.additional_user,
         )
         response = self.authorized_client.get(reverse("follow_index"))
-        test_user_context = response.context['page'][0]
-        self.assertNotEqual(test_user_context.author, another_post.author)
+        test_user_context = response.context['page']
+        self.assertEqual(len(test_user_context), 0)
 
 
 class PaginatorViewsTest(TestCase):
@@ -210,11 +223,10 @@ class PaginatorViewsTest(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create_user(username='AndreyG')
-        for i in range(1, 14):
-            Post.objects.create(
-                text=f'Тестовый текст{i}',
-                author=cls.user,
-            )
+        Post.objects.bulk_create([
+            Post(text=f'Тестовый текст{i}', author=cls.user)
+            for i in range(1, 14)
+        ])
 
     def test_first_page_contains_ten_records(self):
         response = self.client.get(reverse('index'))

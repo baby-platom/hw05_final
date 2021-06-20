@@ -13,16 +13,15 @@ class PostURLTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.test_user = User.objects.create_user(username='AndreyG')
+        cls.user = User.objects.create_user(username='AndreyG')
         cls.post = Post.objects.create(
             text='Тестовый текст',
-            author=cls.test_user,
+            author=cls.user,
         )
-        cls.post_id = cls.post.id
 
     def setUp(self):
         self.guest_client = Client()
-        self.user = PostURLTests.test_user
+        self.user = PostURLTests.user
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
@@ -62,21 +61,21 @@ class PostURLTests(TestCase):
         анонимного пользователя на страницу логина.
         """
         response = self.guest_client.get(reverse('post_edit', kwargs={
-            'username': PostURLTests.test_user,
-            'post_id': PostURLTests.post_id
+            'username': PostURLTests.user,
+            'post_id': PostURLTests.post.id
         }), follow=True)
         self.assertRedirects(
             response,
             '/auth/login/?next=/AndreyG/'
-            f'{PostURLTests.post_id}/edit/'
+            f'{PostURLTests.post.id}/edit/'
         )
 
     def test_post_edit_url_exists_at_desired_location_for_author(self):
         """Страница /<username>/<post_id>/edit/ доступна
         авторизованному пользователю автору поста."""
         response = self.authorized_client.get(reverse('post_edit', kwargs={
-            'username': PostURLTests.test_user,
-            'post_id': PostURLTests.post_id
+            'username': PostURLTests.user,
+            'post_id': PostURLTests.post.id
         }))
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
@@ -85,11 +84,11 @@ class PostURLTests(TestCase):
         авторизованному пользователю не автору поста."""
         client = self.another_authorized_client
         response = client.get(reverse('post_edit', kwargs={
-            'username': PostURLTests.test_user,
-            'post_id': PostURLTests.post_id
+            'username': PostURLTests.user,
+            'post_id': PostURLTests.post.id
         }))
         self.assertRedirects(
-            response, f'/AndreyG/{PostURLTests.post_id}/')
+            response, f'/AndreyG/{PostURLTests.post.id}/')
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -109,10 +108,10 @@ class GroupURLTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.test_user = User.objects.create_user(username='AndreyG')
+        cls.user = User.objects.create_user(username='AndreyG')
         cls.post = Post.objects.create(
             text='Тестовый текст',
-            author=cls.test_user
+            author=cls.user
         )
 
         cls.group = Group.objects.create(
@@ -123,7 +122,7 @@ class GroupURLTests(TestCase):
 
     def setUp(self):
         self.guest_client = Client()
-        self.user = GroupURLTests.test_user
+        self.user = GroupURLTests.user
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
@@ -137,7 +136,7 @@ class GroupURLTests(TestCase):
         templates_url_names = {
             'posts/group.html': '/group/some-slug/',
             'posts/post_new_or_edit.html':
-                f'/{GroupURLTests.test_user.username}/'
+                f'/{GroupURLTests.user.username}/'
                 f'{GroupURLTests.post.id}/edit/',
         }
         for template, adress in templates_url_names.items():
@@ -154,4 +153,4 @@ class DefunctURLTests(TestCase):
         """При вызове к несуществующей странице
         сервер возвращает код 404."""
         response = self.guest_client.get('/baby_admin/0/')
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
