@@ -170,26 +170,24 @@ class PostGroupPagesTests(TestCase):
         self.assertNotEqual(initial_response.content,
                             non_cached_response.content)
 
-    def test_authorized_can_subscribe(self):
-        """Авторизированный пользователь может подписываться и отписываться."""
-        Follow.objects.create(
-            user=self.test_user,
-            author=self.another_user
-        )
-        Post.objects.create(
-            text='Условный текст',
-            author=self.another_user
-        )
-        response = self.authorized_client.get(reverse('follow_index'))
-        subscribe_exist = len(response.context['page'])
-        self.assertEqual(subscribe_exist, 1)
-        Follow.objects.filter(
-            user=self.test_user,
-            author=self.another_user
-        ).delete()
-        response = self.authorized_client.get(reverse('follow_index'))
-        subscribe_not_exist = len(response.context['page'])
-        self.assertEqual(subscribe_not_exist, 0)
+
+class FollowViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.guest_client = Client()
+
+        cls.test_user = User.objects.create_user(username='AndreyB')
+        cls.authorized_client = Client()
+        cls.authorized_client.force_login(cls.test_user)
+
+        cls.another_user = User.objects.create_user(username='DaBaby')
+        cls.another_authorized_client = Client()
+        cls.another_authorized_client.force_login(cls.another_user)
+
+        cls.additional_user = User.objects.create_user(username='NaBaby')
+        cls.additional_client = Client()
+        cls.additional_client.force_login(cls.additional_user)
 
     def test_follow_page_work_properly_for_subscribers(self):
         """Новая запись пользователя появляется в ленте тех,
@@ -216,6 +214,34 @@ class PostGroupPagesTests(TestCase):
         response = self.authorized_client.get(reverse("follow_index"))
         test_user_context = response.context['page']
         self.assertEqual(len(test_user_context), 0)
+
+    def test_authorized_can_follow(self):
+        """Авторизированный пользователь может подписываться."""
+        self.authorized_client.get(reverse(
+            "profile_follow",
+            kwargs={'username': 'DaBaby'}
+        ))
+        existence = Follow.objects.filter(
+            user=self.test_user,
+            author=self.another_user
+        ).exists()
+        self.assertTrue(existence)
+
+    def test_authorized_can_unfollow(self):
+        """Авторизированный пользователь может  отписываться."""
+        Follow.objects.create(
+            user=self.test_user,
+            author=self.another_user
+        )
+        self.authorized_client.get(reverse(
+            "profile_unfollow",
+            kwargs={'username': 'DaBaby'}
+        ))
+        existence = Follow.objects.filter(
+            user=self.test_user,
+            author=self.another_user
+        ).exists()
+        self.assertFalse(existence)
 
 
 class PaginatorViewsTest(TestCase):
